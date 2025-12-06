@@ -1,0 +1,74 @@
+services:
+  proj_usuario:
+    build:
+      context: ../proj_usuario
+    image: proj_usuario:latest
+    container_name: proj_usuario
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/proj_db_usuario
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=admin
+    depends_on:
+      - postgres
+
+  proj_agendador_tarefas1:
+    build:
+      context: ../proj_agendador_tarefas1
+    image: proj_agendador_tarefas1:latest
+    container_name: proj_agendador_tarefas1
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/proj_db_agendador
+    depends_on:
+      - mongo
+
+  proj_bff_agendador_tarefas:
+    build:
+      context: .
+    image: proj_bff_agendador_tarefas:latest
+    container_name: proj_bff_agendador_tarefas
+    ports:
+      - "8083:8083"
+    environment:
+      - USUARIO_URL=proj_usuario:8080/usuario
+      - PROJ_AGENDADOR_TAREFAS1_URL=proj_agendador_tarefas1:8081/tarefas
+      - NOTIFICACAO_URL=notificacao:8082/email
+    depends_on:
+      - proj_usuario
+      - proj_agendador_tarefas1
+      - notificacao
+
+  notificacao:
+    build:
+      context: ../notificacao
+    image: notificacao:latest
+    container_name: notificacao
+    ports:
+      - "8082:8082"
+
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: proj_db_usuario
+    ports:
+      - "5434:5433"
+
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: proj_db_agendador
+
+networks:
+  default:
+    driver: bridge
