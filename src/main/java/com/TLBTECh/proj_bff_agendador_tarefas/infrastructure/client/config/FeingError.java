@@ -1,10 +1,7 @@
 package com.TLBTECh.proj_bff_agendador_tarefas.infrastructure.client.config;
 
-import com.TLBTECh.proj_bff_agendador_tarefas.infrastructure.exceptions.BusinessException;
-import com.TLBTECh.proj_bff_agendador_tarefas.infrastructure.exceptions.ConflictException;
+import com.TLBTECh.proj_bff_agendador_tarefas.infrastructure.exceptions.*;
 import com.TLBTECh.proj_bff_agendador_tarefas.infrastructure.exceptions.IllegalArgumentException;
-import com.TLBTECh.proj_bff_agendador_tarefas.infrastructure.exceptions.ResourceNotFoundException;
-import com.TLBTECh.proj_bff_agendador_tarefas.infrastructure.exceptions.UnauthorizedException;
 import feign.Response;
 import feign.codec.ErrorDecoder;
 
@@ -14,35 +11,40 @@ import java.util.Objects;
 
 public class FeingError implements ErrorDecoder {
 
+    // Constante para prefixo de mensagens de erro
+    private static final String ERROR_PREFIX = "Erro: ";
+
     @Override
     public Exception decode(String s, Response response) {
-
-        String mensagemErro = mensagemErro(response);
-
-        switch (response.status()){
-            case 409:
-                return new ConflictException("Erro: " + mensagemErro);
-            case 403:
-                return new ResourceNotFoundException("Erro: " + mensagemErro);
-            case 401:
-                return new UnauthorizedException("Erro: " + mensagemErro);
-            case 400:
-                return new IllegalArgumentException("Erro: " + mensagemErro);
-            default:
-                return new BusinessException("Erro: " + mensagemErro);
-        }
-    }
-
-    private String mensagemErro(Response response) {
+        String mensagemErro;
         try {
-            if (Objects.isNull(response.body())) {
-                return "";
-            }
-
-            return new String(response.body().asInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            mensagemErro = mensagemErro(response);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            return new BusinessException(ERROR_PREFIX + "ao ler corpo da resposta", e);
+        }
+
+        // Switch simples com inteiros (compatível com Java 17)
+        switch (response.status()) {
+            case 409:
+                return new ConflictException(ERROR_PREFIX + mensagemErro);
+            case 403:
+                return new ForbiddenException(ERROR_PREFIX + mensagemErro);
+            case 404:
+                return new ResourceNotFoundException(ERROR_PREFIX + mensagemErro);
+            case 401:
+                return new UnauthorizedException(ERROR_PREFIX + mensagemErro);
+            case 400:
+                return new IllegalArgumentException(ERROR_PREFIX + mensagemErro);
+            default:
+                return new BusinessException(ERROR_PREFIX + mensagemErro);
         }
     }
 
+    private String mensagemErro(Response response) throws IOException {
+        if (Objects.isNull(response.body())) {
+            return "";
+        }
+        return new String(response.body().asInputStream().readAllBytes(), StandardCharsets.UTF_8);
+    }
 }
+
